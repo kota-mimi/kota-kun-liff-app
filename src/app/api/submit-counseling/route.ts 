@@ -1,0 +1,18 @@
+import { NextResponse } from 'next/server';
+
+// POSTリクエストを受け取ったときの処理
+export async function POST(request: Request) {
+  try {
+    const body = await request.json();
+    
+    // 受け取ったデータをターミナルに表示するだけ
+    console.log('API Route received data:', body);
+    
+    // 必ず成功のレスポンスを返す
+    return NextResponse.json({ message: 'Success! API Route is working!' }, { status: 200 });
+
+  } catch (error) {
+    console.error('API Route Error:', error);
+    return NextResponse.json({ error: 'Failed inside API Route' }, { status: 500 });
+  }
+}
