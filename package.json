@@ -9,6 +9,8 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@google-cloud/vision": "^5.3.3",
+    "@google/generative-ai": "^0.24.1",
     "@line/bot-sdk": "^10.2.0",
     "@line/liff": "^2.27.2",
     "dotenv": "^17.2.2",
