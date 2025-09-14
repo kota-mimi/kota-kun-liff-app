@@ -57,6 +57,11 @@ const handleTextMessage = async (event: line.MessageEvent & { message: line.Text
         return userRef.update({ conversation_state: FieldValue.delete(), context: FieldValue.delete() });
     }
     
+    if (text === '記録' || text === '記録する') {
+        const quickReply = { items: [ { type: 'action' as const, action: { type: 'message' as const, label: '体重', text: '体重' } }, { type: 'action' as const, action: { type: 'message' as const, label: '運動', text: '運動' } }, { type: 'action' as const, action: { type: 'message' as const, label: '食事', text: '食事' } } ] };
+        return lineClient.replyMessage(event.replyToken, [{ type: 'text', text: '何を記録しますか？', quickReply }]);
+    }
+    
     if (text === '食事') {
         await userRef.set({ conversation_state: 'waiting_for_meal_type' }, { merge: true });
         const quickReply = { items: [ { type: 'action' as const, action: { type: 'message' as const, label: '朝食', text: '朝食' } }, { type: 'action' as const, action: { type: 'message' as const, label: '昼食', text: '昼食' } }, { type: 'action' as const, action: { type: 'message' as const, label: '夕食', text: '夕食' } }, { type: 'action' as const, action: { type: 'message' as const, label: '間食', text: '間食' } } ] };
@@ -74,6 +79,32 @@ const handleTextMessage = async (event: line.MessageEvent & { message: line.Text
     if (text === '過去の食事から記録') {
         await userRef.update({ conversation_state: FieldValue.delete(), context: FieldValue.delete() });
         return lineClient.replyMessage(event.replyToken, [{ type: 'text', text: 'この機能は現在開発中です！💪' }]);
+    }
+    
+    if (text === '体重') {
+        await userRef.set({ conversation_state: 'waiting_for_weight' }, { merge: true });
+        return lineClient.replyMessage(event.replyToken, [{ type: 'text', text: '体重を入力してください (例: 65.5)' }]);
+    }
+    
+    if (text === '運動') {
+        await userRef.set({ conversation_state: 'waiting_for_exercise' }, { merge: true });
+        return lineClient.replyMessage(event.replyToken, [{ type: 'text', text: '運動内容を入力してください (例: ランニング30分)' }]);
+    }
+    
+    if (state === 'waiting_for_weight') {
+        const weight = parseFloat(text);
+        if (isNaN(weight)) {
+            return lineClient.replyMessage(event.replyToken, [{ type: 'text', text: '正しい数値を入力してください (例: 65.5)' }]);
+        }
+        await db.collection('users').doc(userId).collection('weight').add({ weight, timestamp: new Date() });
+        await userRef.update({ conversation_state: FieldValue.delete() });
+        return lineClient.replyMessage(event.replyToken, [{ type: 'text', text: `体重 ${weight}kg を記録しました！📊` }]);
+    }
+    
+    if (state === 'waiting_for_exercise') {
+        await db.collection('users').doc(userId).collection('exercises').add({ exercise: text, timestamp: new Date() });
+        await userRef.update({ conversation_state: FieldValue.delete() });
+        return lineClient.replyMessage(event.replyToken, [{ type: 'text', text: `運動「${text}」を記録しました！💪` }]);
     }
 
     const prompt = `あなたは優秀なダイエットコーチです。ユーザーから「${text}」というメッセージが届きました。簡潔かつポジティブに返信してください。`;
