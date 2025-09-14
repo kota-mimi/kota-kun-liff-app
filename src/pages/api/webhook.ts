@@ -59,12 +59,12 @@ const handleTextMessage = async (event: line.MessageEvent & { message: line.Text
     
     if (text === '食事') {
         await userRef.set({ conversation_state: 'waiting_for_meal_type' }, { merge: true });
-        const quickReply = { items: [ { type: 'action', action: { type: 'message', label: '朝食', text: '朝食' } }, { type: 'action', action: { type: 'message', label: '昼食', text: '昼食' } }, { type: 'action', action: { type: 'message', label: '夕食', text: '夕食' } }, { type: 'action', action: { type: 'message', label: '間食', text: '間食' } } ] };
+        const quickReply = { items: [ { type: 'action' as const, action: { type: 'message' as const, label: '朝食', text: '朝食' } }, { type: 'action' as const, action: { type: 'message' as const, label: '昼食', text: '昼食' } }, { type: 'action' as const, action: { type: 'message' as const, label: '夕食', text: '夕食' } }, { type: 'action' as const, action: { type: 'message' as const, label: '間食', text: '間食' } } ] };
         return lineClient.replyMessage(event.replyToken, [{ type: 'text', text: 'どの食事を記録しますか？', quickReply }]);
     }
     if (['朝食', '昼食', '夕食', '間食'].includes(text)) {
         await userRef.set({ conversation_state: 'waiting_for_record_method', context: { meal_type: text } }, { merge: true });
-        const quickReply = { items: [ { type: 'action', action: { type: 'camera', label: 'カメラで記録' } }, { type: 'action', action: { type: 'message', label: 'テキストで記録', text: 'テキストで記録' } }, { type: 'action', action: { type: 'message', label: '過去の食事から記録', text: '過去の食事から記録' } } ] };
+        const quickReply = { items: [ { type: 'action' as const, action: { type: 'camera' as const, label: 'カメラで記録' } }, { type: 'action' as const, action: { type: 'message' as const, label: 'テキストで記録', text: 'テキストで記録' } }, { type: 'action' as const, action: { type: 'message' as const, label: '過去の食事から記録', text: '過去の食事から記録' } } ] };
         return lineClient.replyMessage(event.replyToken, [{ type: 'text', text: `${text}の記録方法を選んでください`, quickReply }]);
     }
     if (text === 'テキストで記録') {
