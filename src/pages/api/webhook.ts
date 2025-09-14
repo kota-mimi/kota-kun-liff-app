@@ -16,7 +16,6 @@ const visionClient = new ImageAnnotatorClient();
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 const geminiModel = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 export const config = { api: { bodyParser: false } };
-// --- ヘルパー関数 ---
 const getRawBody = (req: NextApiRequest): Promise<Buffer> => new Promise((resolve, reject) => {
   const chunks: Buffer[] = [];
   req.on('data', chunk => chunks.push(chunk)).on('end', () => resolve(Buffer.concat(chunks))).on('error', reject);
@@ -32,13 +31,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const body = JSON.parse(bodyBuffer.toString());
     await Promise.all(body.events.map(handleEvent));
     res.status(200).json({ status: 'success' });
-  } catch (err: any) {
-    console.error("Webhook Error:", err.originalError?.response?.data || err);
+  } catch (err) { // ★★★ エラーの型指定を修正！ ★★★
+    console.error("Webhook Error:", err);
     res.status(500).json({ status: 'error' });
   }
 }
 
-// --- イベントハンドラ ---
 const handleEvent = async (event: line.WebhookEvent) => {
   if (event.type === 'message') {
     if (event.message.type === 'text') return handleTextMessage(event as line.MessageEvent & { message: line.TextMessage });
@@ -46,22 +44,19 @@ const handleEvent = async (event: line.WebhookEvent) => {
   }
 };
 
-// --- テキストメッセージ処理 ---
 const handleTextMessage = async (event: line.MessageEvent & { message: line.TextMessage }) => {
     const userId = event.source.userId!;
     const text = event.message.text.trim();
     const userRef = db.collection('users').doc(userId);
     const userDoc = await userRef.get();
     const state = userDoc.exists && userDoc.data()!.conversation_state ? userDoc.data()!.conversation_state : null;
+    const context = userDoc.exists && userDoc.data()!.context ? userDoc.data()!.context : {};
 
-    // --- 短期記憶に基づく処理 ---
     if (state === 'waiting_for_meal_text') {
-        const context = userDoc.exists && userDoc.data()!.context ? userDoc.data()!.context : {};
         await analyzeMealAndReply(userId, 'text', text, context.meal_type || '食事', event.replyToken);
         return userRef.update({ conversation_state: FieldValue.delete(), context: FieldValue.delete() });
     }
     
-    // --- キーワードに基づく処理 ---
     if (text === '食事') {
         await userRef.set({ conversation_state: 'waiting_for_meal_type' }, { merge: true });
         const quickReply = { items: [ { type: 'action', action: { type: 'message', label: '朝食', text: '朝食' } }, { type: 'action', action: { type: 'message', label: '昼食', text: '昼食' } }, { type: 'action', action: { type: 'message', label: '夕食', text: '夕食' } }, { type: 'action', action: { type: 'message', label: '間食', text: '間食' } } ] };
@@ -81,13 +76,11 @@ const handleTextMessage = async (event: line.MessageEvent & { message: line.Text
         return lineClient.replyMessage({ replyToken: event.replyToken, messages: [{ type: 'text', text: 'この機能は現在開発中です！💪 LIFFのマイページから過去の記録を確認できます。' }] });
     }
 
-    // AI雑談
     const prompt = `あなたは優秀なダイエットコーチです。ユーザーから「${text}」というメッセージが届きました。簡潔かつポジティブに返信してください。`;
     const result = await geminiModel.generateContent(prompt);
     return lineClient.replyMessage({ replyToken: event.replyToken, messages: [{ type: 'text', text: result.response.text() }] });
 };
 
-// --- 画像メッセージ処理 ---
 const handleImageMessage = async (event: line.MessageEvent & { message: line.ImageMessage }) => {
     const userId = event.source.userId!;
     const userRef = db.collection('users').doc(userId);
@@ -104,17 +97,15 @@ const handleImageMessage = async (event: line.MessageEvent & { message: line.Ima
     return userRef.update({ conversation_state: FieldValue.delete(), context: FieldValue.delete() });
 };
 
-// --- AI食事分析エンジン ---
 const analyzeMealAndReply = async (userId: string, type: 'text' | 'image', data: string | Buffer, meal_type: string, replyToken: string) => {
     let mealText = '';
     if (type === 'image') {
-        const [result] = await visionClient.labelDetection(data as Buffer);
+        const [result] = await visionClient.labelDetection({ image: { content: data as Buffer } });
         const labels = result.labelAnnotations;
-        mealText = labels && labels.length > 0 ? labels.map(l => l!.description!).slice(0, 3).join(', ') : '不明な料理';
+        mealText = labels && labels.length > 0 && labels[0].description ? labels.map(l => l.description!).slice(0, 3).join(', ') : '不明な料理';
     } else {
         mealText = data as string;
     }
-
     await db.collection('users').doc(userId).collection('meals').add({ text: mealText, meal_type, type, timestamp: new Date() });
     
     const prompt = `食事内容: 「${mealText}」\nこの食事の「食事名」「総カロリー(kcal)」「タンパク質のカロリー(kcal)」「脂質のカロリー(kcal)」「炭水化物のカロリー(kcal)」だけを、以下の形式で出力してください。他の言葉や挨拶、アドバイスは一切含めないでください。\n\n食事名: [ここに食事名]\n総カロリー: [ここに推定カロリー]kcal\nPFCカロリー: P[タンパク質カロリー]kcal, F[脂質カロリー]kcal, C[炭水化物カロリー]kcal`;
