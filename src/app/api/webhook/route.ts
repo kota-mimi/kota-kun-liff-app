@@ -1,4 +1,4 @@
-import type { NextApiRequest, NextApiResponse } from 'next';
+import { NextRequest, NextResponse } from 'next/server';
 import * as line from '@line/bot-sdk';
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
@@ -15,25 +15,24 @@ const lineClient = new line.Client(lineConfig);
 const visionClient = new ImageAnnotatorClient();
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 const geminiModel = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-export const config = { api: { bodyParser: false } };
-const getRawBody = (req: NextApiRequest): Promise<Buffer> => new Promise((resolve) => {
-  const chunks: Buffer[] = [];
-  req.on('data', chunk => chunks.push(chunk)).on('end', () => resolve(Buffer.concat(chunks)));
-});
 
 // --- メイン処理 ---
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+export async function POST(req: NextRequest) {
   try {
-    const bodyBuffer = await getRawBody(req);
-    if (!line.validateSignature(bodyBuffer.toString(), lineConfig.channelSecret, req.headers['x-line-signature'] as string)) {
-      return res.status(401).json({ error: 'Invalid signature' });
+    const body = await req.text();
+    const signature = req.headers.get('x-line-signature');
+    
+    if (!signature || !line.validateSignature(body, lineConfig.channelSecret, signature)) {
+      return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
     }
-    const body = JSON.parse(bodyBuffer.toString());
-    await Promise.all(body.events.map(handleEvent));
-    res.status(200).json({ status: 'success' });
+    
+    const events = JSON.parse(body);
+    await Promise.all(events.events.map(handleEvent));
+    
+    return NextResponse.json({ status: 'success' });
   } catch (err) {
     console.error("Webhook Error:", err);
-    res.status(500).json({ status: 'error' });
+    return NextResponse.json({ status: 'error' }, { status: 500 });
   }
 }
 
