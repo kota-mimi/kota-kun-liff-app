@@ -291,7 +291,7 @@ export function CounselingSteps({ userId, onComplete }: CounselingStepsProps = {
   const handleAdvice = async () => {
     try {
       // AIアドバイスを取得するためのAPI呼び出し
-      const response = await fetch('https://kota-kun-ai-8db8eacdbee1.herokuapp.com/send-counseling-advice', {
+      const response = await fetch('https://kota-kun-backend-160064026763.asia-northeast1.run.app/send-counseling-advice', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: userId || 'pc-test-user' }),
