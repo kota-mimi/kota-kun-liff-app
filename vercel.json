@@ -1,0 +1,8 @@
+{
+  "framework": "nextjs",
+  "rewrites": [
+    { "source": "/api/webhook", "destination": "/api/webhook" },
+    { "source": "/api/get-user-status", "destination": "/api/get-user-status" },
+    { "source": "/api/submit-counseling", "destination": "/api/submit-counseling" }
+  ]
+}

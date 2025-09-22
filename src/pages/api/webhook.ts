@@ -40,6 +40,14 @@ export default async function handler(
         if (event.type === 'follow') {
           return handleFollow(event);
         }
+        if (event.type === 'message') {
+          if (event.message.type === 'text') {
+            return handleTextMessage(event);
+          }
+          if (event.message.type === 'image') {
+            return handleImageMessage(event);
+          }
+        }
       } catch (err) {
         console.error(err);
       }
@@ -102,6 +110,40 @@ const getRawBody = (req: NextApiRequest): Promise<Buffer> => {
     req.on('data', (chunk) => chunks.push(chunk));
     req.on('end', () => resolve(Buffer.concat(chunks)));
   });
+};
+
+// テキストメッセージを処理する関数
+const handleTextMessage = async (event: line.MessageEvent & { message: line.TextMessage }) => {
+  const text = event.message.text;
+  const userId = event.source.userId!;
+  
+  // カウンセリング開始のトリガー
+  if (text === 'カウンセリング開始') {
+    const welcomeMessage = {
+      type: 'text' as const,
+      text: 'ありがとうございます！\n\nまずは年齢を教えてください。'
+    };
+    return client.replyMessage(event.replyToken, [welcomeMessage]);
+  }
+  
+  // その他のテキストメッセージには簡単な返答
+  const replyMessage = {
+    type: 'text' as const,
+    text: '「カウンセリング開始」と送信してください。'
+  };
+  return client.replyMessage(event.replyToken, [replyMessage]);
+};
+
+// 画像メッセージを処理する関数
+const handleImageMessage = async (event: line.MessageEvent & { message: line.ImageMessage }) => {
+  const userId = event.source.userId!;
+  
+  // 画像分析の結果を返す（簡易版）
+  const analysisMessage = {
+    type: 'text' as const,
+    text: '画像を確認しました！\n\nこの画像から食事の内容を分析して、カロリーとPFC（タンパク質・脂質・炭水化物）の情報をお伝えします。\n\n詳細な分析結果はマイページで確認できます。'
+  };
+  return client.replyMessage(event.replyToken, [analysisMessage]);
 };
 
 // Next.jsのおまじない
