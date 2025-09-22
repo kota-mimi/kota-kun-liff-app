@@ -399,7 +399,7 @@ def create_meal_flex_message(meal_type, content, analysis):
 
 @app.route('/submit-counseling', methods=['POST'])
 def submit_counseling():
-    """LIFFからのカウンセリングデータ受信"""
+    """LIFFからのカウンセリングデータ受信（互換性のため残す）"""
     try:
         data = request.get_json()
         user_id = data.get('userId')
@@ -424,6 +424,170 @@ def submit_counseling():
     except Exception as e:
         print(f"Error in submit_counseling: {e}")
         return jsonify({'error': 'Failed to save data'}), 500
+
+@app.route('/send-counseling-advice', methods=['POST'])
+def send_counseling_advice():
+    """カウンセリング完了後にLINEでAIアドバイスを送信"""
+    try:
+        data = request.get_json()
+        user_id = data.get('userId')
+        
+        if not user_id:
+            return jsonify({'error': 'User ID is required'}), 400
+        
+        print(f"Sending counseling advice to user: {user_id}")
+        
+        # 新しいusersコレクションからユーザーデータを取得
+        user_ref = db.collection('users').document(user_id)
+        user_doc = user_ref.get()
+        
+        if not user_doc.exists:
+            return jsonify({'error': 'User data not found'}), 404
+        
+        user_data = user_doc.to_dict()
+        print(f"User data found: {user_data}")
+        
+        # BMI計算
+        height_m = user_data['profile']['height'] / 100
+        weight = user_data['profile']['weight']
+        bmi = weight / (height_m ** 2)
+        
+        # AIアドバイス生成
+        advice = generate_advanced_ai_advice(user_data, bmi)
+        
+        # LINEでFlexメッセージとして送信
+        flex_message = create_advanced_counseling_flex_message(user_data, bmi, advice)
+        
+        line_bot_api.push_message(user_id, flex_message)
+        
+        print(f"Counseling advice sent successfully to {user_id}")
+        return jsonify({'message': 'Advice sent successfully'})
+        
+    except Exception as e:
+        print(f"Error in send_counseling_advice: {e}")
+        traceback.print_exc()
+        return jsonify({'error': 'Failed to send advice'}), 500
+
+def generate_advanced_ai_advice(user_data, bmi):
+    """新しいユーザーデータ構造に対応したAIアドバイス生成"""
+    try:
+        profile = user_data.get('profile', {})
+        preferences = user_data.get('preferences', {})
+        habits = user_data.get('habits', {})
+        goals = user_data.get('goals', {})
+        
+        # プロンプト作成
+        prompt = f"""
+        ユーザーのカウンセリングデータを分析して、パーソナライズされたアドバイスを提供してください。
+
+        【基本情報】
+        - 年齢: {profile.get('age')}歳
+        - 性別: {profile.get('gender')}
+        - 身長: {profile.get('height')}cm
+        - 現在の体重: {profile.get('weight')}kg
+        - 目標体重: {profile.get('targetWeight')}kg
+        - BMI: {bmi:.1f}
+
+        【生活習慣】
+        - 睡眠時間: {preferences.get('sleepHours')}
+        - 活動レベル: {preferences.get('activityLevel')}
+        - 運動習慣: {habits.get('hasExerciseHabit')} ({habits.get('exerciseFrequency')})
+        - 食事回数: {habits.get('mealCount')}
+        - 間食頻度: {habits.get('snackFrequency')}
+        - アルコール: {habits.get('drinkFrequency')}
+
+        【目標】
+        - 気になる部位: {goals.get('concernedAreas')}
+        - 主な目的: {goals.get('goal')}
+        - 目標期限: {preferences.get('targetDate')}
+
+        以下の観点から具体的で実行可能なアドバイスを日本語で提供してください：
+        1. 目標達成のための食事改善提案
+        2. 運動・活動量の具体的な推奨事項
+        3. 生活習慣改善のポイント
+        4. 気になる部位へのアプローチ方法
+
+        アドバイスは励ましの気持ちを込めて、300文字以内で簡潔にお願いします。
+        """
+        
+        response = model.generate_content(prompt)
+        return response.text
+        
+    except Exception as e:
+        print(f"Error generating AI advice: {e}")
+        return "お疲れ様でした！あなたの目標達成に向けて、バランスの良い食事と適度な運動を心がけましょう。一歩ずつ着実に進んでいけば、必ず理想の体型に近づけますよ！💪"
+
+def create_advanced_counseling_flex_message(user_data, bmi, advice):
+    """新しいデータ構造に対応したFlexメッセージ作成"""
+    profile = user_data.get('profile', {})
+    goals = user_data.get('goals', {})
+    
+    # BMIステータス
+    if bmi < 18.5:
+        bmi_status = "低体重"
+        bmi_color = "#3b82f6"
+    elif bmi < 25:
+        bmi_status = "普通体重"
+        bmi_color = "#10b981"
+    elif bmi < 30:
+        bmi_status = "肥満(1度)"
+        bmi_color = "#f59e0b"
+    else:
+        bmi_status = "肥満(2度以上)"
+        bmi_color = "#ef4444"
+    
+    return FlexSendMessage(
+        alt_text='カウンセリング完了！パーソナルアドバイスをお送りします！',
+        contents=BubbleContainer(
+            body=BoxComponent(
+                layout='vertical',
+                contents=[
+                    TextComponent(text='🎉 カウンセリング完了！', weight='bold', size='xl', color='#1f2937'),
+                    SeparatorComponent(margin='md'),
+                    
+                    # BMI情報
+                    BoxComponent(
+                        layout='horizontal',
+                        margin='lg',
+                        contents=[
+                            TextComponent(text='BMI:', weight='bold', size='sm', flex=1, color='#6b7280'),
+                            TextComponent(text=f'{bmi:.1f} ({bmi_status})', size='sm', flex=2, color=bmi_color, weight='bold')
+                        ]
+                    ),
+                    
+                    # 目標
+                    BoxComponent(
+                        layout='horizontal',
+                        margin='sm',
+                        contents=[
+                            TextComponent(text='目標:', weight='bold', size='sm', flex=1, color='#6b7280'),
+                            TextComponent(text=goals.get('goal', '健康維持'), size='sm', flex=2, color='#1f2937')
+                        ]
+                    ),
+                    
+                    SeparatorComponent(margin='lg'),
+                    TextComponent(text='🤖 AIパーソナルアドバイス', weight='bold', size='lg', color='#3b82f6'),
+                    TextComponent(text=advice, size='sm', color='#374151', wrap=True, margin='md'),
+                    
+                    SeparatorComponent(margin='lg'),
+                    TextComponent(text='マイページで詳細を確認できます！', size='xs', color='#9ca3af', align='center')
+                ]
+            ),
+            footer=BoxComponent(
+                layout='vertical',
+                contents=[
+                    ButtonComponent(
+                        action=URIAction(
+                            uri='https://kota-kun-ai.web.app'
+                        ),
+                        style='primary',
+                        color='#3b82f6',
+                        height='sm'
+                    )
+                ]
+            )
+        )
+    )
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
