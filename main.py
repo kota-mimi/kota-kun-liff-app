@@ -14,14 +14,14 @@ import traceback
 app = Flask(__name__)
 
 # LINE Bot設定
-line_bot_api = LineBotApi('sCf/zZSQdEioCsdBjdj3sNg0BvrWiqw3zruTcwFNTdtlDw02x45w/QEg8vbWEs9EazSiS1UziVKoz6p75foPbnaiNFxgCBUerBr1s+969C6IVrvVEaDt0FPYFWNEH6Qtczqf3E495P0QmkV0altlEQdB04t89/1O/w1cDnyilFU=')
-handler = WebhookHandler('88779957b5120a3d043e922e1626652a')
+line_bot_api = LineBotApi(os.environ.get('LINE_CHANNEL_ACCESS_TOKEN', 'sCf/zZSQdEioCsdBjdj3sNg0BvrWiqw3zruTcwFNTdtlDw02x45w/QEg8vbWEs9EazSiS1UziVKoz6p75foPbnaiNFxgCBUerBr1s+969C6IVrvVEaDt0FPYFWNEH6Qtczqf3E495P0QmkV0altlEQdB04t89/1O/w1cDnyilFU='))
+handler = WebhookHandler(os.environ.get('LINE_CHANNEL_SECRET', '88779957b5120a3d043e922e1626652a'))
 
 # Firestore設定
 db = firestore.Client()
 
 # Gemini AI設定
-genai.configure(api_key='AIzaSyBQqQqQqQqQqQqQqQqQqQqQqQqQqQqQqQ')
+genai.configure(api_key=os.environ.get('GEMINI_API_KEY', 'AIzaSyBQqQqQqQqQqQqQqQqQqQqQqQqQqQqQqQ'))
 model = genai.GenerativeModel('gemini-pro')
 
 # Vision API設定
@@ -590,4 +590,5 @@ def create_advanced_counseling_flex_message(user_data, bmi, advice):
     )
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    port = int(os.environ.get('PORT', 5000))
+    app.run(debug=True, host='0.0.0.0', port=port)
