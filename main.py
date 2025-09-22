@@ -442,9 +442,40 @@ def send_counseling_advice():
         user_doc = user_ref.get()
         
         if not user_doc.exists:
-            return jsonify({'error': 'User data not found'}), 404
-        
-        user_data = user_doc.to_dict()
+            # テスト用のダミーデータを使用（pc-test-userの場合）
+            if user_id == 'pc-test-user':
+                print("Using dummy data for pc-test-user")
+                user_data = {
+                    'profile': {
+                        'name': 'テストユーザー',
+                        'age': 25,
+                        'gender': '男性',
+                        'height': 170,
+                        'weight': 65.0,
+                        'targetWeight': 60.0
+                    },
+                    'preferences': {
+                        'targetDate': '2025-12-31',
+                        'sleepHours': '7-8時間',
+                        'activityLevel': '軽い活動'
+                    },
+                    'habits': {
+                        'hasExerciseHabit': 'いいえ',
+                        'exerciseFrequency': '',
+                        'mealCount': '3回',
+                        'snackFrequency': '週1-2回',
+                        'drinkFrequency': '飲まない'
+                    },
+                    'goals': {
+                        'concernedAreas': 'お腹周り',
+                        'goal': 'ダイエット'
+                    }
+                }
+            else:
+                return jsonify({'error': 'User data not found'}), 404
+        else:
+            user_data = user_doc.to_dict()
+            
         print(f"User data found: {user_data}")
         
         # BMI計算
@@ -458,10 +489,20 @@ def send_counseling_advice():
         # LINEでFlexメッセージとして送信
         flex_message = create_advanced_counseling_flex_message(user_data, bmi, advice)
         
-        line_bot_api.push_message(user_id, flex_message)
-        
-        print(f"Counseling advice sent successfully to {user_id}")
-        return jsonify({'message': 'Advice sent successfully'})
+        # テストユーザーの場合はLINE送信をスキップ
+        if user_id == 'pc-test-user':
+            print(f"Test mode: Skipping LINE message for {user_id}")
+            return jsonify({
+                'message': 'Test advice generated successfully', 
+                'advice': advice,
+                'bmi': round(bmi, 1),
+                'flex_message_generated': True
+            })
+        else:
+            # 実際のLINE userIdの場合はLINEで送信
+            line_bot_api.push_message(user_id, flex_message)
+            print(f"Counseling advice sent successfully to {user_id}")
+            return jsonify({'message': 'Advice sent successfully'})
         
     except Exception as e:
         print(f"Error in send_counseling_advice: {e}")
