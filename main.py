@@ -494,9 +494,6 @@ def send_counseling_advice():
         # AIアドバイス生成
         advice = generate_advanced_ai_advice(user_data, bmi)
         
-        # LINEでFlexメッセージとして送信
-        flex_message = create_advanced_counseling_flex_message(user_data, bmi, advice)
-        
         # テストユーザーの場合はLINE送信をスキップ
         if user_id == 'pc-test-user':
             print(f"Test mode: Skipping LINE message for {user_id}")
@@ -504,10 +501,11 @@ def send_counseling_advice():
                 'message': 'Test advice generated successfully', 
                 'advice': advice,
                 'bmi': round(bmi, 1),
-                'flex_message_generated': True
+                'test_mode': True
             })
         else:
-            # 実際のLINE userIdの場合はLINEで送信
+            # 実際のLINE userIdの場合はFlexメッセージを作成してLINEで送信
+            flex_message = create_advanced_counseling_flex_message(user_data, bmi, advice)
             line_bot_api.push_message(user_id, flex_message)
             print(f"Counseling advice sent successfully to {user_id}")
             response = jsonify({'message': 'Advice sent successfully'})
