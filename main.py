@@ -425,9 +425,17 @@ def submit_counseling():
         print(f"Error in submit_counseling: {e}")
         return jsonify({'error': 'Failed to save data'}), 500
 
-@app.route('/send-counseling-advice', methods=['POST'])
+@app.route('/send-counseling-advice', methods=['POST', 'OPTIONS'])
 def send_counseling_advice():
     """カウンセリング完了後にLINEでAIアドバイスを送信"""
+    # CORS設定
+    if request.method == 'OPTIONS':
+        response = jsonify({'status': 'OK'})
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type')
+        response.headers.add('Access-Control-Allow-Methods', 'POST, OPTIONS')
+        return response
+    
     try:
         data = request.get_json()
         user_id = data.get('userId')
@@ -492,7 +500,7 @@ def send_counseling_advice():
         # テストユーザーの場合はLINE送信をスキップ
         if user_id == 'pc-test-user':
             print(f"Test mode: Skipping LINE message for {user_id}")
-            return jsonify({
+            response = jsonify({
                 'message': 'Test advice generated successfully', 
                 'advice': advice,
                 'bmi': round(bmi, 1),
@@ -502,12 +510,22 @@ def send_counseling_advice():
             # 実際のLINE userIdの場合はLINEで送信
             line_bot_api.push_message(user_id, flex_message)
             print(f"Counseling advice sent successfully to {user_id}")
-            return jsonify({'message': 'Advice sent successfully'})
+            response = jsonify({'message': 'Advice sent successfully'})
+        
+        # CORS設定
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type')
+        response.headers.add('Access-Control-Allow-Methods', 'POST, OPTIONS')
+        return response
         
     except Exception as e:
         print(f"Error in send_counseling_advice: {e}")
         traceback.print_exc()
-        return jsonify({'error': 'Failed to send advice'}), 500
+        response = jsonify({'error': 'Failed to send advice'})
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type')
+        response.headers.add('Access-Control-Allow-Methods', 'POST, OPTIONS')
+        return response, 500
 
 def generate_advanced_ai_advice(user_data, bmi):
     """新しいユーザーデータ構造に対応したAIアドバイス生成"""
