@@ -639,7 +639,8 @@ def create_advanced_counseling_flex_message(user_data, bmi, advice):
                         ),
                         style='primary',
                         color='#3b82f6',
-                        height='sm'
+                        height='sm',
+                        label='マイページを開く'
                     )
                 ]
             )
